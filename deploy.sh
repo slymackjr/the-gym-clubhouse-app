@@ -6,7 +6,7 @@ export PATH="$PATH:$(npm bin -g)"
 # Set variables
 PM2_PROCESS_NAME="gym-clubhouse"
 PROJECT_DIR="$(pwd)"
-HEALTHCHECK_URL="https://thegymclubhouse.com"
+HEALTHCHECK_URL="https://portal.thegymclubhouse.com"
 BUILD_DIR="$PROJECT_DIR/dist"
 SERVER_FILE="server.js"  # The main file to run
 
