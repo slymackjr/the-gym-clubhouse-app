@@ -2,11 +2,20 @@
 
 # Set variables
 PM2_PROCESS_NAME="gym-clubhouse"
-PROJECT_DIR="$(pwd)" 
+PROJECT_DIR="$(pwd)"
 HEALTHCHECK_URL="https://portal.gymclubhouse.co.tz"
 BUILD_DIR="$PROJECT_DIR/dist"
+SERVER_FILE="server.js"  # The main file to run
 
 echo "🚀 Starting deployment script..."
+
+# Check if PM2 is installed globally, install if not.
+if ! command -v pm2 >/dev/null 2>&1; then
+    echo "⚠ PM2 is not installed globally. Installing PM2 globally..."
+    npm install -g pm2 || { echo "❌ PM2 installation failed!"; exit 1; }
+else
+    echo "✅ PM2 is already installed globally."
+fi
 
 # Pull the latest changes from Git
 echo "📥 Pulling latest changes..."
@@ -24,9 +33,14 @@ fi
 echo "🔨 Building project..."
 npm run build || { echo "❌ Build failed!"; exit 1; }
 
-# Restart PM2 process
-echo "🔄 Restarting PM2 process: $PM2_PROCESS_NAME..."
-pm2 restart "$PM2_PROCESS_NAME" || { echo "❌ PM2 restart failed!"; exit 1; }
+# Check if PM2 process exists; if not, start it; otherwise, restart it using server.js.
+if ! pm2 describe "$PM2_PROCESS_NAME" >/dev/null 2>&1; then
+    echo "🔄 PM2 process '$PM2_PROCESS_NAME' not found. Starting process using $SERVER_FILE..."
+    pm2 start "$SERVER_FILE" --name "$PM2_PROCESS_NAME" || { echo "❌ PM2 start failed!"; exit 1; }
+else
+    echo "🔄 Restarting PM2 process: $PM2_PROCESS_NAME..."
+    pm2 restart "$PM2_PROCESS_NAME" || { echo "❌ PM2 restart failed!"; exit 1; }
+fi
 
 # Wait a bit for the app to fully start
 sleep 10
@@ -37,7 +51,7 @@ if curl -s --head --request GET "$HEALTHCHECK_URL" | grep "200 OK" > /dev/null; 
     echo "✅ $HEALTHCHECK_URL is online. No further action needed."
 else
     echo "⚠ $HEALTHCHECK_URL is still DOWN! Removing dist folder and forcing a full rebuild..."
-    
+
     # Delete dist folder
     if [ -d "$BUILD_DIR" ]; then
         rm -rf "$BUILD_DIR"
@@ -48,8 +62,13 @@ else
     npm run build || { echo "❌ Build failed again!"; exit 1; }
 
     # Restart PM2 process again
-    echo "🔄 Restarting PM2 process again: $PM2_PROCESS_NAME..."
-    pm2 restart "$PM2_PROCESS_NAME" || { echo "❌ PM2 restart failed again!"; exit 1; }
+    if ! pm2 describe "$PM2_PROCESS_NAME" >/dev/null 2>&1; then
+        echo "🔄 PM2 process '$PM2_PROCESS_NAME' not found. Starting process using $SERVER_FILE..."
+        pm2 start "$SERVER_FILE" --name "$PM2_PROCESS_NAME" || { echo "❌ PM2 start failed again!"; exit 1; }
+    else
+        echo "🔄 Restarting PM2 process again: $PM2_PROCESS_NAME..."
+        pm2 restart "$PM2_PROCESS_NAME" || { echo "❌ PM2 restart failed again!"; exit 1; }
+    fi
 fi
 
 echo "✅ Deployment completed successfully!"
